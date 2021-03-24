@@ -1,6 +1,6 @@
 .DS_Store
 
-terraform-provider-hashicups
+terraform-provider-google-network-peerings
 bin
 
 # Local .terraform directories

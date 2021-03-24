@@ -1,8 +1,8 @@
-module github.com/hashicorp/terraform-provider-hashicups
+module github.com/hayorov/terraform-provider-google-network-peerings
 
-go 1.13
+go 1.16
 
 require (
-	github.com/hashicorp-demoapp/hashicups-client-go v0.0.0-20200508203820-4c67e90efb8e
-	github.com/hashicorp/terraform-plugin-sdk/v2 v2.0.0-rc.2
+	github.com/hashicorp/terraform-plugin-sdk/v2 v2.4.4
+	github.com/hashicorp/terraform-plugin-test v1.4.0 // indirect
 )

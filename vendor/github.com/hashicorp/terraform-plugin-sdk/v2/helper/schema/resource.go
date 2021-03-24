@@ -26,7 +26,6 @@ var ReservedResourceFields = []string{
 	"connection",
 	"count",
 	"depends_on",
-	"id",
 	"lifecycle",
 	"provider",
 	"provisioner",
@@ -192,6 +191,16 @@ type Resource struct {
 	// other user facing usage. It can be plain-text or markdown depending on the
 	// global DescriptionKind setting.
 	Description string
+
+	// UseJSONNumber should be set when state upgraders will expect
+	// json.Numbers instead of float64s for numbers. This is added as a
+	// toggle for backwards compatibility for type assertions, but should
+	// be used in all new resources to avoid bugs with sufficiently large
+	// user input.
+	//
+	// See github.com/hashicorp/terraform-plugin-sdk/issues/655 for more
+	// details.
+	UseJSONNumber bool
 }
 
 // ShimInstanceStateFromValue converts a cty.Value to a
@@ -649,6 +658,14 @@ func (r *Resource) InternalValidate(topSchemaMap schemaMap, writable bool) error
 			}
 		}
 
+		if f, ok := tsm["id"]; ok {
+			// if there is an explicit ID, validate it...
+			err := validateResourceID(f)
+			if err != nil {
+				return err
+			}
+		}
+
 		for k, f := range tsm {
 			if isReservedResourceFieldName(k, f) {
 				return fmt.Errorf("%s is a reserved field name", k)
@@ -705,26 +722,6 @@ func (r *Resource) InternalValidate(topSchemaMap schemaMap, writable bool) error
 		return fmt.Errorf("DeleteContext and Delete should not both be set")
 	}
 
-	// Warn of deprecations
-	if r.Exists != nil {
-		log.Printf("[WARN] Exists is deprecated, please encapsulate the logic in ReadContext")
-	}
-	if r.Create != nil && r.CreateContext == nil {
-		log.Printf("[WARN] Create is deprecated, please use CreateContext")
-	}
-	if r.Read != nil && r.ReadContext == nil {
-		log.Printf("[WARN] Read is deprecated, please use ReadContext")
-	}
-	if r.Update != nil && r.UpdateContext == nil {
-		log.Printf("[WARN] Update is deprecated, please use UpdateContext")
-	}
-	if r.Delete != nil && r.DeleteContext == nil {
-		log.Printf("[WARN] Delete is deprecated, please use DeleteContext")
-	}
-	if r.MigrateState != nil {
-		log.Printf("[WARN] MigrateState is deprecated, please use StateUpgraders")
-	}
-
 	return schemaMap(r.Schema).InternalValidate(tsm)
 }
 
@@ -737,18 +734,30 @@ func isReservedDataSourceFieldName(name string) bool {
 	return false
 }
 
-func isReservedResourceFieldName(name string, s *Schema) bool {
-	// Allow phasing out "id"
-	// See https://github.com/terraform-providers/terraform-provider-aws/pull/1626#issuecomment-328881415
-	if name == "id" && s.Deprecated != "" {
-		return false
+func validateResourceID(s *Schema) error {
+	if s.Type != TypeString {
+		return fmt.Errorf(`the "id" attribute must be of TypeString`)
 	}
 
+	if s.Required {
+		return fmt.Errorf(`the "id" attribute cannot be marked Required`)
+	}
+
+	// ID should at least be computed. If unspecified it will be set to Computed and Optional,
+	// but Optional is unnecessary if undesired.
+	if s.Computed != true {
+		return fmt.Errorf(`the "id" attribute must be marked Computed`)
+	}
+	return nil
+}
+
+func isReservedResourceFieldName(name string, s *Schema) bool {
 	for _, reservedName := range ReservedResourceFields {
 		if name == reservedName {
 			return true
 		}
 	}
+
 	return false
 }
 
