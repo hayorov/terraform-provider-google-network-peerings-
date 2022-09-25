@@ -1,6 +1,6 @@
 module github.com/hayorov/terraform-provider-google-network-peerings
 
-go 1.16
+go 1.19
 
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.16.0
